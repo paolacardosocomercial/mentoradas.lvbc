@@ -1,467 +1,53 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel Comercial — Mentoradas</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#0D0D0D;
-    --surface:#161512;
-    --surface-2:#1E1C17;
-    --line:#2A2822;
-    --ink:#F5F0E8;
-    --ink-muted:#A9A296;
-    --gold:#C9A84C;
-    --gold-soft:rgba(201,168,76,0.14);
-    --ok:#6E9179;
-    --ok-bg:rgba(110,145,121,0.14);
-    --warn:#D0923F;
-    --warn-bg:rgba(208,146,63,0.14);
-    --danger:#B5544F;
-    --danger-bg:rgba(181,84,79,0.16);
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'Inter',Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  .wrap{max-width:1320px;margin:0 auto;padding:40px 28px 80px;}
+/**
+ * INSTRUÇÕES DE INSTALAÇÃO (fazer uma única vez):
+ *
+ * 1. Abra a planilha no navegador.
+ * 2. Menu Extensões (Extensions) → Apps Script.
+ * 3. Apague o conteúdo padrão e cole este arquivo inteiro.
+ * 4. Clique no ícone de salvar (disquete).
+ * 5. No menu de funções (dropdown no topo, ao lado de "Depurar"), selecione "syncPainelData"
+ *    e clique em "Executar" (▶). Na primeira vez, o Google vai pedir autorização:
+ *    clique em "Revisar permissões" → escolha sua conta → "Avançado" → "Acessar [nome da planilha] (não seguro)"
+ *    → "Permitir". Isso é normal, é só o Google avisando que o script vai editar a própria planilha.
+ * 6. Depois de rodar uma vez com sucesso (sem erro em vermelho), vá no ícone de relógio
+ *    (Acionadores / Triggers) no menu lateral esquerdo → "+ Adicionar acionador".
+ * 7. Configure:
+ *      Função a executar: syncPainelData
+ *      Origem do evento: Do Google Sheets
+ *      Tipo do evento: Ao editar   (crie um segundo acionador igual, mas com "Ao mudar" / On change)
+ * 8. Salvar.
+ *
+ * A partir daqui, toda vez que você editar qualquer aba OU criar uma aba nova,
+ * uma aba oculta chamada "PAINEL_DATA" é atualizada automaticamente com o conteúdo
+ * da aba mais recente (a mais à direita). O painel sempre lê essa aba fixa,
+ * então você pode continuar criando uma aba nova por mês sem quebrar nada.
+ */
 
-  /* Header */
-  header{
-    display:flex;justify-content:space-between;align-items:flex-end;
-    gap:24px;flex-wrap:wrap;
-    border-bottom:1px solid var(--line);
-    padding-bottom:24px;margin-bottom:32px;
+function syncPainelData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const allSheets = ss.getSheets();
+
+  // Ignora a própria aba de destino ao procurar "a mais recente"
+  const candidateSheets = allSheets.filter(s => s.getName() !== 'PAINEL_DATA');
+  if (candidateSheets.length === 0) return;
+
+  const latest = candidateSheets[candidateSheets.length - 1]; // aba mais à direita
+  const range = latest.getDataRange();
+  const values = range.getValues();
+
+  let painel = ss.getSheetByName('PAINEL_DATA');
+  if (!painel) {
+    painel = ss.insertSheet('PAINEL_DATA');
   }
-  .eyebrow{
-    text-transform:uppercase;letter-spacing:.16em;font-size:11px;
-    color:var(--gold);font-weight:600;margin-bottom:8px;
+  painel.clearContents();
+  if (values.length > 0) {
+    painel.getRange(1, 1, values.length, values[0].length).setValues(values);
   }
-  h1{
-    font-family:'Playfair Display',serif;font-style:italic;font-weight:500;
-    font-size:34px;margin:0;color:var(--ink);
-  }
-  .updated{font-size:12.5px;color:var(--ink-muted);text-align:right;}
-  .updated b{color:var(--ink);font-weight:600;}
-  #status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px;}
 
-  /* Summary cards */
-  .summary{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;
-  }
-  .card{
-    background:var(--surface);border:1px solid var(--line);border-radius:10px;
-    padding:20px 22px;
-  }
-  .card .label{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:10px;}
-  .card .value{font-family:'Playfair Display',serif;font-size:28px;font-weight:600;color:var(--ink);}
-  .card .value.gold{color:var(--gold);}
-  .card .value.warn{color:var(--warn);}
-
-  /* Filters */
-  .filters{
-    display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;align-items:center;
-  }
-  .filters input, .filters select{
-    background:var(--surface);border:1px solid var(--line);color:var(--ink);
-    padding:10px 14px;border-radius:8px;font-family:'Inter',sans-serif;font-size:13.5px;
-    outline:none;
-  }
-  .filters input{flex:1;min-width:200px;}
-  .filters input:focus, .filters select:focus{border-color:var(--gold);}
-  .filters select{cursor:pointer;}
-
-  /* Table */
-  .table-scroll{
-    background:var(--surface);border:1px solid var(--line);border-radius:10px;
-    overflow-x:auto;
-  }
-  table{width:100%;border-collapse:collapse;min-width:1180px;}
-  thead th{
-    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
-    color:var(--ink-muted);font-weight:600;padding:14px 16px;
-    border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--surface);
-  }
-  tbody td{
-    padding:14px 16px;font-size:13.5px;border-bottom:1px solid var(--line);white-space:nowrap;
-    vertical-align:middle;
-  }
-  tbody tr:last-child td{border-bottom:none;}
-  tbody tr:hover{background:var(--surface-2);}
-  .mentee-name{font-weight:600;color:var(--ink);}
-  .razao{font-size:11.5px;color:var(--ink-muted);display:block;margin-top:2px;}
-  .pill{
-    display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
-    letter-spacing:.02em;
-  }
-  .pill.stripe{background:var(--gold-soft);color:var(--gold);}
-  .pill.appmax{background:rgba(169,162,150,0.16);color:var(--ink-muted);}
-  .pill.pix{background:var(--ok-bg);color:var(--ok);}
-
-  .renewal-cell{display:flex;align-items:center;gap:10px;}
-  .ring{
-    width:34px;height:34px;border-radius:50%;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;position:relative;
-  }
-  .ring-label{font-size:9px;font-weight:700;}
-  .renewal-status{display:flex;flex-direction:column;line-height:1.3;}
-  .renewal-date{font-size:13px;font-weight:600;}
-  .renewal-tag{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
-  .tag-ok{color:var(--ok);}
-  .tag-warn{color:var(--warn);}
-  .tag-danger{color:var(--danger);}
-
-  .progress-wrap{display:flex;flex-direction:column;gap:4px;min-width:90px;}
-  .progress-track{width:100%;height:5px;background:var(--line);border-radius:3px;overflow:hidden;}
-  .progress-fill{height:100%;background:var(--gold);border-radius:3px;}
-  .progress-text{font-size:11px;color:var(--ink-muted);}
-
-  .money{font-weight:600;}
-  .money-accent{color:var(--gold);}
-
-  .empty-state{
-    padding:60px 20px;text-align:center;color:var(--ink-muted);
-  }
-  .empty-state b{color:var(--ink);}
-
-  footer{margin-top:24px;font-size:11.5px;color:var(--ink-muted);text-align:center;}
-
-  @media (max-width:720px){
-    h1{font-size:26px;}
-    .summary{grid-template-columns:repeat(2,1fr);}
-  }
-</style>
-</head>
-<body>
-<div class="wrap">
-
-  <header>
-    <div>
-      <div class="eyebrow">LVBC · Controle interno</div>
-      <h1>Painel de Mentoradas</h1>
-    </div>
-    <div class="updated">
-      <div><span id="status-dot"></span><span id="status-text">Carregando dados da planilha…</span></div>
-      <div>Última atualização: <b id="last-updated">—</b></div>
-    </div>
-  </header>
-
-  <div class="summary">
-    <div class="card">
-      <div class="label">Mentoradas ativas</div>
-      <div class="value" id="stat-total">—</div>
-    </div>
-    <div class="card">
-      <div class="label">Recebido no mês (parcelas do mês)</div>
-      <div class="value gold" id="stat-mes">—</div>
-    </div>
-    <div class="card">
-      <div class="label">Acumulado total pago</div>
-      <div class="value gold" id="stat-acumulado">—</div>
-    </div>
-    <div class="card">
-      <div class="label">Renovação em até 30 dias</div>
-      <div class="value warn" id="stat-renovacao">—</div>
-    </div>
-  </div>
-
-  <div class="filters">
-    <input type="text" id="search" placeholder="Buscar por mentorada, razão social ou vendedor...">
-    <select id="filter-vendedor"><option value="">Todos os vendedores</option></select>
-    <select id="filter-plataforma"><option value="">Todas as plataformas</option></select>
-    <select id="filter-renovacao">
-      <option value="">Todas as renovações</option>
-      <option value="danger">Vencido / vence em até 30 dias</option>
-      <option value="warn">Vence em 31–60 dias</option>
-      <option value="ok">Mais de 60 dias</option>
-    </select>
-  </div>
-
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Mentorada</th>
-          <th>Vendedor</th>
-          <th>Data contrato</th>
-          <th>1º pagamento</th>
-          <th>Meses decorridos</th>
-          <th>Plataforma</th>
-          <th>Forma pagamento</th>
-          <th>Mensalidade</th>
-          <th>Parcelas pagas</th>
-          <th>Acumulado pago</th>
-          <th>Renovação</th>
-        </tr>
-      </thead>
-      <tbody id="table-body">
-        <tr><td colspan="11" class="empty-state">Carregando…</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <footer>Painel alimentado automaticamente pela planilha de contratos. Os dados só podem ser editados na planilha de origem.</footer>
-</div>
-
-<script>
-// ======= CONFIG =======
-const SHEET_ID = "16Lo_N-QBSosXUNc4BM7-zlUY_gn0bQVyxp4UHU3LH1s";
-const GID = "0";
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
-const REFRESH_MS = 5 * 60 * 1000; // auto-refresh every 5 min
-
-// ======= HELPERS =======
-function parseCSV(text){
-  const rows = [];
-  let row = [], field = '', inQuotes = false;
-  for(let i=0;i<text.length;i++){
-    const c = text[i], next = text[i+1];
-    if(inQuotes){
-      if(c === '"' && next === '"'){ field += '"'; i++; }
-      else if(c === '"'){ inQuotes = false; }
-      else { field += c; }
-    } else {
-      if(c === '"'){ inQuotes = true; }
-      else if(c === ','){ row.push(field); field=''; }
-      else if(c === '\r'){ /* skip */ }
-      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
-      else { field += c; }
-    }
-  }
-  if(field.length || row.length){ row.push(field); rows.push(row); }
-  return rows;
+  // Mantém a aba oculta pra não atrapalhar seu dia a dia
+  painel.hideSheet();
 }
 
-function parseBRDate(str){
-  if(!str) return null;
-  const m = str.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(!m) return null;
-  return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+function onOpen() {
+  syncPainelData();
 }
-
-function parseBRNumber(str){
-  if(!str) return 0;
-  const cleaned = str.replace(/[^\d.,]/g,'').replace(/\./g,'').replace(',', '.');
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
-}
-
-function extractInstallmentInfo(valorStr){
-  // e.g. "12X R$ 8.333,33" -> {total: 12, monthly: 8333.33}
-  const totalMatch = valorStr.match(/(\d+)\s*[xX]/);
-  const total = totalMatch ? parseInt(totalMatch[1]) : null;
-  const monthly = parseBRNumber(valorStr);
-  return { total, monthly };
-}
-
-function extractParcela(parcelaStr){
-  const m = (parcelaStr||'').match(/(\d+)\s*\/\s*(\d+)/);
-  if(!m) return { paid: null, total: null };
-  return { paid: parseInt(m[1]), total: parseInt(m[2]) };
-}
-
-function monthsBetween(start, end){
-  if(!start) return null;
-  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-  if(end.getDate() < start.getDate()) months -= 1;
-  return Math.max(0, months);
-}
-
-function addMonths(date, n){
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + n);
-  return d;
-}
-
-function fmtDate(d){
-  if(!d) return '—';
-  return d.toLocaleDateString('pt-BR');
-}
-
-function fmtMoney(n){
-  return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-}
-
-function platformClass(p){
-  const s = (p||'').toUpperCase();
-  if(s.includes('STRIPE')) return 'stripe';
-  if(s.includes('APPMAX')) return 'appmax';
-  if(s.includes('PIX')) return 'pix';
-  return 'appmax';
-}
-
-// ======= LOAD & RENDER =======
-let rawRows = [];
-
-async function loadData(){
-  try{
-    const res = await fetch(CSV_URL, {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    // header is on row index 1 (row 0 is an empty formatting row in this sheet)
-    let headerIdx = rows.findIndex(r => r.join('|').includes('MENTORADO'));
-    if(headerIdx === -1) headerIdx = 0;
-    const dataRows = rows.slice(headerIdx+1).filter(r => r.some(c => c && c.trim() !== ''));
-    rawRows = dataRows.map(r => ({
-      dataContrato: r[0] || '',
-      razaoSocial: r[1] || '',
-      mentorado: r[2] || '',
-      plataforma: r[3] || '',
-      formaPagamento: r[4] || '',
-      dataPagamento: r[5] || '',
-      valor: r[6] || '',
-      valorPagoMes: r[7] || '',
-      parcela: r[8] || '',
-      vendedor: r[9] || '',
-      nf: r[10] || '',
-      contrato: r[11] || '',
-      obs: r[12] || ''
-    }));
-    document.getElementById('status-text').textContent = 'Conectado à planilha';
-    document.getElementById('status-dot').style.background = 'var(--ok)';
-    document.getElementById('last-updated').textContent = new Date().toLocaleString('pt-BR');
-    populateFilters();
-    render();
-  } catch(err){
-    document.getElementById('status-text').textContent = 'Não foi possível carregar a planilha';
-    document.getElementById('status-dot').style.background = 'var(--danger)';
-    document.getElementById('table-body').innerHTML =
-      `<tr><td colspan="11" class="empty-state">Não consegui buscar os dados agora. Confirme se a planilha está compartilhada como <b>"Qualquer pessoa com o link — Leitor"</b> e recarregue a página.</td></tr>`;
-    console.error(err);
-  }
-}
-
-function computeRow(r){
-  const contratoDate = parseBRDate(r.dataContrato);
-  const primeiroPagamento = parseBRDate(r.dataPagamento);
-  const { total: totalParcelasValor, monthly } = extractInstallmentInfo(r.valor);
-  const { paid: parcelasPagasSheet, total: totalParcelasParcela } = extractParcela(r.parcela);
-  const totalParcelas = totalParcelasParcela || totalParcelasValor || 12;
-
-  const today = new Date();
-  const mesesDecorridos = primeiroPagamento ? monthsBetween(primeiroPagamento, today) : null;
-
-  // parcelas pagas: prioriza o que está registrado na planilha, senão estima pelos meses decorridos
-  let parcelasPagas = parcelasPagasSheet != null ? parcelasPagasSheet : (mesesDecorridos != null ? Math.min(mesesDecorridos + 1, totalParcelas) : 0);
-  parcelasPagas = Math.min(parcelasPagas, totalParcelas);
-
-  const valorAcumulado = parcelasPagas * monthly;
-  const renovacaoData = contratoDate ? addMonths(contratoDate, totalParcelas) : null;
-  const diasParaRenovacao = renovacaoData ? Math.round((renovacaoData - today) / 86400000) : null;
-
-  let renewalTier = 'ok';
-  if(diasParaRenovacao !== null){
-    if(diasParaRenovacao <= 30) renewalTier = 'danger';
-    else if(diasParaRenovacao <= 60) renewalTier = 'warn';
-  }
-
-  return {
-    ...r,
-    contratoDate, primeiroPagamento, mesesDecorridos, totalParcelas,
-    parcelasPagas, monthly, valorAcumulado, renovacaoData, diasParaRenovacao, renewalTier
-  };
-}
-
-function populateFilters(){
-  const vendedores = [...new Set(rawRows.map(r => r.vendedor).filter(Boolean))].sort();
-  const plataformas = [...new Set(rawRows.map(r => r.plataforma).filter(Boolean))].sort();
-  const vSel = document.getElementById('filter-vendedor');
-  const pSel = document.getElementById('filter-plataforma');
-  vSel.innerHTML = '<option value="">Todos os vendedores</option>' + vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
-  pSel.innerHTML = '<option value="">Todas as plataformas</option>' + plataformas.map(p => `<option value="${p}">${p}</option>`).join('');
-}
-
-function ringSVG(tier, diasParaRenovacao){
-  const colors = { ok:'#6E9179', warn:'#D0923F', danger:'#B5544F' };
-  const color = colors[tier];
-  const pct = diasParaRenovacao === null ? 0 : Math.max(0, Math.min(100, 100 - (diasParaRenovacao/180*100)));
-  return `<div class="ring" style="background:conic-gradient(${color} ${pct}%, var(--line) 0)">
-    <div style="width:24px;height:24px;border-radius:50%;background:var(--surface);"></div>
-  </div>`;
-}
-
-function render(){
-  const search = document.getElementById('search').value.toLowerCase();
-  const vendedorF = document.getElementById('filter-vendedor').value;
-  const plataformaF = document.getElementById('filter-plataforma').value;
-  const renovacaoF = document.getElementById('filter-renovacao').value;
-
-  const computed = rawRows.map(computeRow);
-
-  const filtered = computed.filter(r => {
-    if(search && !(`${r.mentorado} ${r.razaoSocial} ${r.vendedor}`.toLowerCase().includes(search))) return false;
-    if(vendedorF && r.vendedor !== vendedorF) return false;
-    if(plataformaF && r.plataforma !== plataformaF) return false;
-    if(renovacaoF && r.renewalTier !== renovacaoF) return false;
-    return true;
-  });
-
-  // Summary stats (sobre todos os dados, não só o filtro)
-  document.getElementById('stat-total').textContent = computed.length;
-  const totalMes = computed.reduce((sum, r) => sum + parseBRNumber(r.valorPagoMes), 0);
-  document.getElementById('stat-mes').textContent = fmtMoney(totalMes);
-  const totalAcumulado = computed.reduce((sum, r) => sum + r.valorAcumulado, 0);
-  document.getElementById('stat-acumulado').textContent = fmtMoney(totalAcumulado);
-  const renovacoes30 = computed.filter(r => r.diasParaRenovacao !== null && r.diasParaRenovacao <= 30).length;
-  document.getElementById('stat-renovacao').textContent = renovacoes30;
-
-  const tbody = document.getElementById('table-body');
-  if(filtered.length === 0){
-    tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Nenhum resultado para os filtros selecionados.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtered.map(r => {
-    const tagText = r.diasParaRenovacao === null ? '—'
-      : r.diasParaRenovacao < 0 ? `Vencido há ${Math.abs(r.diasParaRenovacao)}d`
-      : `Faltam ${r.diasParaRenovacao}d`;
-    const progressPct = r.totalParcelas ? Math.min(100, (r.parcelasPagas / r.totalParcelas) * 100) : 0;
-    return `
-    <tr>
-      <td><span class="mentee-name">${r.mentorado || '—'}</span><span class="razao">${r.razaoSocial || ''}</span></td>
-      <td>${r.vendedor || '—'}</td>
-      <td>${fmtDate(r.contratoDate)}</td>
-      <td>${fmtDate(r.primeiroPagamento)}</td>
-      <td>${r.mesesDecorridos !== null ? r.mesesDecorridos + ' meses' : '—'}</td>
-      <td><span class="pill ${platformClass(r.plataforma)}">${r.plataforma || '—'}</span></td>
-      <td>${r.formaPagamento || '—'}</td>
-      <td class="money">${r.monthly ? fmtMoney(r.monthly) : '—'}</td>
-      <td>
-        <div class="progress-wrap">
-          <div class="progress-track"><div class="progress-fill" style="width:${progressPct}%"></div></div>
-          <div class="progress-text">${r.parcelasPagas}/${r.totalParcelas}</div>
-        </div>
-      </td>
-      <td class="money money-accent">${fmtMoney(r.valorAcumulado)}</td>
-      <td>
-        <div class="renewal-cell">
-          ${ringSVG(r.renewalTier, r.diasParaRenovacao)}
-          <div class="renewal-status">
-            <span class="renewal-date">${fmtDate(r.renovacaoData)}</span>
-            <span class="renewal-tag tag-${r.renewalTier}">${tagText}</span>
-          </div>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-document.getElementById('search').addEventListener('input', render);
-document.getElementById('filter-vendedor').addEventListener('change', render);
-document.getElementById('filter-plataforma').addEventListener('change', render);
-document.getElementById('filter-renovacao').addEventListener('change', render);
-
-loadData();
-setInterval(loadData, REFRESH_MS);
-</script>
-</body>
-</html>
