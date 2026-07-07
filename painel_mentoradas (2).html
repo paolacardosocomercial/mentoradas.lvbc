@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LVBC — Painel de Mentoradas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0D0D0D; --surface:#161512; --surface-2:#1E1C17; --line:#2A2822;
+    --ink:#F5F0E8; --ink-muted:#A9A296;
+    --gold:#C9A84C; --gold-dim:#8F793A; --gold-soft:rgba(201,168,76,0.12);
+    --ok:#6E9179; --ok-bg:rgba(110,145,121,0.14);
+    --warn:#D0923F; --warn-bg:rgba(208,146,63,0.14);
+    --danger:#B5544F; --danger-bg:rgba(181,84,79,0.16);
+    --neutral:#8A8478; --neutral-bg:rgba(138,132,120,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1280px;margin:0 auto;padding:40px 24px 80px;}
+
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:28px;}
+  .eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:11px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+  h1{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:32px;margin:0;}
+  .status-line{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-muted);justify-content:flex-end;}
+  #status-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex-shrink:0;}
+  .updated-time{font-size:11px;color:var(--ink-muted);text-align:right;margin-top:3px;}
+  .updated-time b{color:var(--ink);}
+
+  /* KPI row */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+  .kpi .label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;}
+  .kpi .value{font-family:'Playfair Display',serif;font-size:26px;font-weight:600;}
+  .kpi .value.gold{color:var(--gold);}
+  .kpi .value.warn{color:var(--warn);}
+  .kpi .sub{font-size:10.5px;color:var(--ink-muted);margin-top:5px;}
+
+  /* Panels */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px 24px;margin-bottom:20px;}
+  .panel-title{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);font-weight:700;margin-bottom:16px;}
+
+  /* Renewal list */
+  .renewal-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;}
+  .renewal-row:last-child{border-bottom:none;}
+  .renewal-name{font-weight:600;font-size:13.5px;}
+  .renewal-razao{font-size:11px;color:var(--ink-muted);}
+  .renewal-right{display:flex;align-items:center;gap:14px;}
+  .renewal-date{font-size:12.5px;color:var(--ink-muted);}
+  .tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:4px 10px;border-radius:6px;white-space:nowrap;}
+  .tag-ok{color:var(--ok);background:var(--ok-bg);}
+  .tag-warn{color:var(--warn);background:var(--warn-bg);}
+  .tag-danger{color:var(--danger);background:var(--danger-bg);}
+  .tag-neutral{color:var(--neutral);background:var(--neutral-bg);}
+  .empty-inline{color:var(--ink-muted);font-size:13px;padding:8px 0;}
+
+  /* Vendor chart */
+  .bar-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+  .bar-row:last-child{margin-bottom:0;}
+  .bar-name{width:110px;flex-shrink:0;font-size:12.5px;font-weight:600;}
+  .bar-track{flex:1;height:18px;background:var(--surface-2);border-radius:5px;overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg, var(--gold-dim), var(--gold));border-radius:5px;}
+  .bar-value{width:110px;flex-shrink:0;text-align:right;font-size:12.5px;font-weight:600;color:var(--gold);}
+
+  /* Filters */
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center;}
+  .filters input,.filters select{
+    background:var(--surface);border:1px solid var(--line);color:var(--ink);
+    padding:10px 13px;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;
+  }
+  .filters input{flex:1;min-width:200px;}
+  .filters input:focus,.filters select:focus{border-color:var(--gold);}
+  .filters select{cursor:pointer;}
+  .result-count{font-size:11.5px;color:var(--ink-muted);margin-left:auto;white-space:nowrap;}
+
+  /* Cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:14px;}
+  .mcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;}
+  .mcard:hover{border-color:var(--gold-dim);}
+  .mcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .mcard-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:600;line-height:1.2;}
+  .mcard-razao{font-size:11px;color:var(--ink-muted);margin-top:2px;}
+  .mcard-vendor{font-size:10px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:5px;}
+
+  .badges{display:flex;gap:6px;flex-wrap:wrap;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;}
+  .pill.stripe{background:var(--gold-soft);color:var(--gold);}
+  .pill.appmax{background:rgba(169,162,150,0.16);color:var(--ink-muted);}
+  .pill.pix{background:var(--ok-bg);color:var(--ok);}
+
+  .mcard-meta{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;font-size:11.5px;}
+  .meta-item .l{color:var(--ink-muted);font-size:10px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px;}
+  .meta-item .v{font-weight:600;}
+  .meta-item .v.gold{color:var(--gold);}
+
+  .progress-track{width:100%;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:2px;}
+  .progress-fill{height:100%;background:var(--gold);border-radius:3px;}
+  .progress-text{font-size:10.5px;color:var(--ink-muted);display:flex;justify-content:space-between;margin-top:4px;}
+
+  .tags-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+  .empty-state{grid-column:1/-1;padding:60px 20px;text-align:center;color:var(--ink-muted);background:var(--surface);border:1px solid var(--line);border-radius:12px;}
+  .empty-state b{color:var(--ink);}
+
+  footer{margin-top:26px;font-size:11px;color:var(--ink-muted);text-align:center;}
+
+  @media (max-width:820px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    h1{font-size:26px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">LVBC · Controle interno</div>
+      <h1>Painel de Mentoradas</h1>
+    </div>
+    <div>
+      <div class="status-line"><span id="status-dot"></span><span id="status-text">Carregando dados da planilha…</span></div>
+      <div class="updated-time">Última atualização: <b id="last-updated">—</b></div>
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">Mentoradas ativas</div>
+      <div class="value" id="stat-total">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Recebido no mês</div>
+      <div class="value gold" id="stat-mes">—</div>
+      <div class="sub" id="stat-mes-sub">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Acumulado total pago</div>
+      <div class="value gold" id="stat-acumulado">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Em atraso este mês</div>
+      <div class="value warn" id="stat-atraso">—</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Próximas renovações de contrato</div>
+    <div id="renewal-list"><div class="empty-inline">Carregando…</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Acumulado pago por vendedor(a)</div>
+    <div id="vendor-chart"><div class="empty-inline">Carregando…</div></div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="search" placeholder="Buscar por mentorada, razão social ou vendedor...">
+    <select id="filter-vendedor"><option value="">Todos os vendedores</option></select>
+    <select id="filter-plataforma"><option value="">Todas as plataformas</option></select>
+    <select id="filter-situacao">
+      <option value="">Toda situação do mês</option>
+      <option value="pago">Pago</option>
+      <option value="aguardando">Aguardando</option>
+      <option value="atraso">Em atraso</option>
+    </select>
+    <div class="result-count" id="result-count"></div>
+  </div>
+
+  <div class="grid" id="cards-grid">
+    <div class="empty-state">Carregando…</div>
+  </div>
+
+  <footer>Painel alimentado automaticamente pela planilha de contratos (aba mais recente sincronizada via script). Edição só na planilha de origem.</footer>
+</div>
+
+<script>
+// ======= CONFIG =======
+const SHEET_ID = "16Lo_N-QBSosXUNc4BM7-zlUY_gn0bQVyxp4UHU3LH1s";
+const CSV_URL_PRIMARY = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=PAINEL_DATA`;
+const CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
+const REFRESH_MS = 5 * 60 * 1000;
+
+// Posições fixas (letras da planilha) para as colunas H e I, cujo conteúdo
+// prático (confirmado por você) é diferente do nome do cabeçalho:
+// H (índice 7) = pago no mês? (texto SIM/NÃO)
+// I (índice 8) = valor acumulado pago até a última parcela (número)
+const COL_PAGO_MES = 7;
+const COL_ACUMULADO = 8;
+
+// ======= CSV / PARSE HELPERS =======
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i], next = text[i+1];
+    if(inQuotes){
+      if(c === '"' && next === '"'){ field += '"'; i++; }
+      else if(c === '"'){ inQuotes = false; }
+      else { field += c; }
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === ','){ row.push(field); field=''; }
+      else if(c === '\r'){ }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else { field += c; }
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function parseBRDate(str){
+  if(!str) return null;
+  const m = str.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return null;
+  return new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+}
+
+function parseBRNumber(str){
+  if(!str) return 0;
+  const cleaned = str.replace(/[^\d.,]/g,'').replace(/\./g,'').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+
+// Corrige o bug de concatenar "12X" com "R$ 8.333,33" (dava R$128.333,33 errado)
+function extractInstallmentInfo(valorStr){
+  if(!valorStr) return { total:null, monthly:0 };
+  const totalMatch = valorStr.match(/(\d+)\s*[xX]/);
+  const total = totalMatch ? parseInt(totalMatch[1]) : null;
+  const withoutMultiplier = totalMatch ? valorStr.slice(totalMatch.index + totalMatch[0].length) : valorStr;
+  const monthly = parseBRNumber(withoutMultiplier);
+  return { total, monthly };
+}
+
+function isPagoFlag(str){
+  const s = (str||'').trim().toUpperCase();
+  return s === 'SIM' || s === 'PAGO' || s === 'TRUE' || s === 'X';
+}
+
+function monthsBetween(start, end){
+  if(!start) return null;
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  if(end.getDate() < start.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+function addMonths(date, n){ const d = new Date(date); d.setMonth(d.getMonth() + n); return d; }
+function fmtDate(d){ return d ? d.toLocaleDateString('pt-BR') : '—'; }
+function fmtMoney(n){ return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
+function fmtMoneyShort(n){
+  if(n >= 1000000) return 'R$ ' + (n/1000000).toFixed(1).replace('.',',') + 'M';
+  if(n >= 1000) return 'R$ ' + (n/1000).toFixed(1).replace('.',',') + 'k';
+  return fmtMoney(n);
+}
+function platformClass(p){
+  const s = (p||'').toUpperCase();
+  if(s.includes('STRIPE')) return 'stripe';
+  if(s.includes('APPMAX')) return 'appmax';
+  if(s.includes('PIX')) return 'pix';
+  return 'appmax';
+}
+
+// ======= COLUMN MAPPING (por nome, exceto H/I que usam posição) =======
+function buildColumnMap(headerRow){
+  const norm = s => (s||'').toString().trim().toUpperCase();
+  const headers = headerRow.map(norm);
+  function find(regexes){
+    for(let idx=0; idx<headers.length; idx++){
+      for(const rgx of regexes){ if(rgx.test(headers[idx])) return idx; }
+    }
+    return -1;
+  }
+  return {
+    dataContrato: find([/DATA.*CONTRATO/]),
+    razaoSocial: find([/RAZ.O SOCIAL/]),
+    mentorado: find([/MENTORADO/]),
+    plataforma: find([/^PAGO\?/, /^PAGO$/]),
+    formaPagamento: find([/FORMA PAGAMENTO/]),
+    dataPagamento: find([/DATA PAGAMENTO/]),
+    valor: find([/^VALOR$/]),
+    vendedor: find([/VENDEDOR/]),
+    nf: find([/^NF$/]),
+    contrato: find([/^CONTRATO$/]),
+    obs: find([/OBSERVA/])
+  };
+}
+
+// ======= LOAD =======
+let rawRows = [];
+
+async function fetchCSV(url){
+  const res = await fetch(url, {cache:'no-store'});
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.text();
+}
+
+async function loadData(){
+  let text; let usedFallback = false;
+  try{
+    text = await fetchCSV(CSV_URL_PRIMARY);
+    if(!text || text.trim().length < 5) throw new Error('empty');
+  } catch(e){
+    try{ text = await fetchCSV(CSV_URL_FALLBACK); usedFallback = true; }
+    catch(e2){
+      document.getElementById('status-text').textContent = 'Não foi possível carregar a planilha';
+      document.getElementById('status-dot').style.background = 'var(--danger)';
+      document.getElementById('cards-grid').innerHTML =
+        `<div class="empty-state">Não consegui buscar os dados agora. Confirme se a planilha está compartilhada como <b>"Qualquer pessoa com o link — Leitor"</b> e recarregue a página.</div>`;
+      console.error(e2);
+      return;
+    }
+  }
+
+  try{
+    const rows = parseCSV(text);
+    let headerIdx = rows.findIndex(r => r.some(c => /MENTORADO/i.test(c||'')));
+    if(headerIdx === -1) headerIdx = 0;
+    const colMap = buildColumnMap(rows[headerIdx]);
+    const dataRows = rows.slice(headerIdx+1).filter(r => r.some(c => c && c.trim() !== ''));
+
+    const get = (r, key) => colMap[key] >= 0 ? (r[colMap[key]] || '') : '';
+
+    rawRows = dataRows.map(r => ({
+      dataContrato: get(r,'dataContrato'),
+      razaoSocial: get(r,'razaoSocial'),
+      mentorado: get(r,'mentorado'),
+      plataforma: get(r,'plataforma'),
+      formaPagamento: get(r,'formaPagamento'),
+      dataPagamento: get(r,'dataPagamento'),
+      valor: get(r,'valor'),
+      pagoMesRaw: r[COL_PAGO_MES] || '',
+      acumuladoRaw: r[COL_ACUMULADO] || '',
+      vendedor: get(r,'vendedor'),
+      nf: get(r,'nf'),
+      contrato: get(r,'contrato'),
+      obs: get(r,'obs')
+    })).filter(r => r.mentorado && r.mentorado.trim() !== '');
+
+    document.getElementById('status-text').textContent = usedFallback
+      ? 'Conectado (aba PAINEL_DATA ainda não encontrada — lendo aba padrão)'
+      : 'Conectado à planilha';
+    document.getElementById('status-dot').style.background = usedFallback ? 'var(--warn)' : 'var(--ok)';
+    document.getElementById('last-updated').textContent = new Date().toLocaleString('pt-BR');
+
+    populateFilters();
+    render();
+  } catch(err){
+    console.error(err);
+    document.getElementById('status-text').textContent = 'Erro ao processar os dados';
+    document.getElementById('status-dot').style.background = 'var(--danger)';
+  }
+}
+
+function computeRow(r){
+  const contratoDate = parseBRDate(r.dataContrato);
+  const primeiroPagamento = parseBRDate(r.dataPagamento);
+  const { total: totalParcelasValor, monthly } = extractInstallmentInfo(r.valor);
+  const totalParcelas = totalParcelasValor || 12;
+
+  const today = new Date();
+  const mesesDecorridos = primeiroPagamento ? monthsBetween(primeiroPagamento, today) : null;
+
+  const valorAcumulado = parseBRNumber(r.acumuladoRaw);
+  const parcelasPagas = monthly > 0 ? Math.min(Math.round(valorAcumulado / monthly), totalParcelas) : 0;
+
+  // Situação do mês: só marca atraso se o dia de vencimento (dia do 1º pagamento) já passou
+  // neste mês e a coluna de "pago no mês" não está confirmada.
+  const pagoMes = isPagoFlag(r.pagoMesRaw);
+  const diaVencimento = primeiroPagamento ? primeiroPagamento.getDate() : (contratoDate ? contratoDate.getDate() : null);
+  let situacaoMes = 'aguardando';
+  if(pagoMes){
+    situacaoMes = 'pago';
+  } else if(diaVencimento !== null){
+    const vencimentoEsteMes = new Date(today.getFullYear(), today.getMonth(), diaVencimento);
+    situacaoMes = today > vencimentoEsteMes ? 'atraso' : 'aguardando';
+  }
+
+  const renovacaoData = contratoDate ? addMonths(contratoDate, totalParcelas) : null;
+  const diasParaRenovacao = renovacaoData ? Math.round((renovacaoData - today) / 86400000) : null;
+  let renewalTier = 'ok';
+  if(diasParaRenovacao !== null){
+    if(diasParaRenovacao <= 30) renewalTier = 'danger';
+    else if(diasParaRenovacao <= 60) renewalTier = 'warn';
+  }
+
+  return { ...r, contratoDate, primeiroPagamento, mesesDecorridos, totalParcelas, parcelasPagas, monthly,
+    valorAcumulado, pagoMes, situacaoMes, renovacaoData, diasParaRenovacao, renewalTier };
+}
+
+function populateFilters(){
+  const vendedores = [...new Set(rawRows.map(r => r.vendedor).filter(Boolean))].sort();
+  const plataformas = [...new Set(rawRows.map(r => r.plataforma).filter(Boolean))].sort();
+  const vSel = document.getElementById('filter-vendedor');
+  const pSel = document.getElementById('filter-plataforma');
+  const curV = vSel.value, curP = pSel.value;
+  vSel.innerHTML = '<option value="">Todos os vendedores</option>' + vendedores.map(v => `<option value="${v}">${v}</option>`).join('');
+  pSel.innerHTML = '<option value="">Todas as plataformas</option>' + plataformas.map(p => `<option value="${p}">${p}</option>`).join('');
+  vSel.value = curV; pSel.value = curP;
+}
+
+function situacaoTag(situacao){
+  if(situacao === 'pago') return `<span class="tag tag-ok">Pago</span>`;
+  if(situacao === 'atraso') return `<span class="tag tag-danger">Em atraso</span>`;
+  return `<span class="tag tag-neutral">Aguardando</span>`;
+}
+
+function renewalTag(r){
+  if(r.diasParaRenovacao === null) return `<span class="tag tag-neutral">Sem previsão</span>`;
+  const cls = r.renewalTier === 'danger' ? 'tag-danger' : r.renewalTier === 'warn' ? 'tag-warn' : 'tag-ok';
+  const txt = r.diasParaRenovacao < 0 ? `Vencido há ${Math.abs(r.diasParaRenovacao)}d` : `Renova em ${r.diasParaRenovacao}d`;
+  return `<span class="tag ${cls}">${txt}</span>`;
+}
+
+function renderRenewalList(computed){
+  const upcoming = computed
+    .filter(r => r.diasParaRenovacao !== null)
+    .sort((a,b) => a.diasParaRenovacao - b.diasParaRenovacao)
+    .slice(0, 8);
+  const el = document.getElementById('renewal-list');
+  if(upcoming.length === 0){ el.innerHTML = '<div class="empty-inline">Nenhuma renovação prevista nos dados atuais.</div>'; return; }
+  el.innerHTML = upcoming.map(r => `
+    <div class="renewal-row">
+      <div>
+        <div class="renewal-name">${r.mentorado}</div>
+        <div class="renewal-razao">${r.razaoSocial || ''}</div>
+      </div>
+      <div class="renewal-right">
+        <span class="renewal-date">${fmtDate(r.renovacaoData)}</span>
+        ${renewalTag(r)}
+      </div>
+    </div>`).join('');
+}
+
+function renderVendorChart(computed){
+  const byVendor = {};
+  computed.forEach(r => { const v = r.vendedor || 'Sem vendedor'; byVendor[v] = (byVendor[v]||0) + r.valorAcumulado; });
+  const entries = Object.entries(byVendor).sort((a,b) => b[1]-a[1]);
+  const max = entries.length ? entries[0][1] : 1;
+  const el = document.getElementById('vendor-chart');
+  if(entries.length === 0){ el.innerHTML = '<div class="empty-inline">Sem dados suficientes.</div>'; return; }
+  el.innerHTML = entries.map(([name, val]) => {
+    const pct = max ? (val/max)*100 : 0;
+    return `<div class="bar-row">
+      <div class="bar-name">${name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="bar-value">${fmtMoneyShort(val)}</div>
+    </div>`;
+  }).join('');
+}
+
+function render(){
+  const search = document.getElementById('search').value.toLowerCase();
+  const vendedorF = document.getElementById('filter-vendedor').value;
+  const plataformaF = document.getElementById('filter-plataforma').value;
+  const situacaoF = document.getElementById('filter-situacao').value;
+
+  const computed = rawRows.map(computeRow);
+
+  document.getElementById('stat-total').textContent = computed.length;
+
+  const pagas = computed.filter(r => r.situacaoMes === 'pago');
+  const totalMes = pagas.reduce((s,r) => s + r.monthly, 0);
+  document.getElementById('stat-mes').textContent = fmtMoney(totalMes);
+  document.getElementById('stat-mes-sub').textContent = `${pagas.length} de ${computed.length} confirmadas`;
+
+  const totalAcumulado = computed.reduce((s,r) => s + r.valorAcumulado, 0);
+  document.getElementById('stat-acumulado').textContent = fmtMoney(totalAcumulado);
+
+  const atrasos = computed.filter(r => r.situacaoMes === 'atraso').length;
+  document.getElementById('stat-atraso').textContent = atrasos;
+
+  renderRenewalList(computed);
+  renderVendorChart(computed);
+
+  const filtered = computed.filter(r => {
+    if(search && !(`${r.mentorado} ${r.razaoSocial} ${r.vendedor}`.toLowerCase().includes(search))) return false;
+    if(vendedorF && r.vendedor !== vendedorF) return false;
+    if(plataformaF && r.plataforma !== plataformaF) return false;
+    if(situacaoF && r.situacaoMes !== situacaoF) return false;
+    return true;
+  });
+
+  document.getElementById('result-count').textContent = `${filtered.length} de ${computed.length} mentoradas`;
+
+  const grid = document.getElementById('cards-grid');
+  if(filtered.length === 0){ grid.innerHTML = `<div class="empty-state">Nenhum resultado para os filtros selecionados.</div>`; return; }
+
+  grid.innerHTML = filtered.map(r => {
+    const progressPct = r.totalParcelas ? Math.min(100, (r.parcelasPagas/r.totalParcelas)*100) : 0;
+    return `
+    <div class="mcard">
+      <div class="mcard-top">
+        <div>
+          <div class="mcard-name">${r.mentorado}</div>
+          <div class="mcard-razao">${r.razaoSocial || ''}</div>
+          <div class="mcard-vendor">Vendedor: ${r.vendedor || '—'}</div>
+        </div>
+      </div>
+
+      <div class="badges">
+        <span class="pill ${platformClass(r.plataforma)}">${r.plataforma || '—'}</span>
+      </div>
+
+      <div class="mcard-meta">
+        <div class="meta-item"><div class="l">Data contrato</div><div class="v">${fmtDate(r.contratoDate)}</div></div>
+        <div class="meta-item"><div class="l">1º pagamento</div><div class="v">${fmtDate(r.primeiroPagamento)}</div></div>
+        <div class="meta-item"><div class="l">Meses decorridos</div><div class="v">${r.mesesDecorridos !== null ? r.mesesDecorridos : '—'}</div></div>
+        <div class="meta-item"><div class="l">Forma pagamento</div><div class="v">${r.formaPagamento || '—'}</div></div>
+        <div class="meta-item"><div class="l">Mensalidade</div><div class="v gold">${r.monthly ? fmtMoney(r.monthly) : '—'}</div></div>
+        <div class="meta-item"><div class="l">Acumulado pago</div><div class="v gold">${fmtMoney(r.valorAcumulado)}</div></div>
+      </div>
+
+      <div>
+        <div class="progress-track"><div class="progress-fill" style="width:${progressPct}%"></div></div>
+        <div class="progress-text"><span>${r.parcelasPagas}/${r.totalParcelas} parcelas</span><span>Renovação: ${fmtDate(r.renovacaoData)}</span></div>
+      </div>
+
+      <div class="tags-row">
+        ${situacaoTag(r.situacaoMes)}
+        ${renewalTag(r)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('filter-vendedor').addEventListener('change', render);
+document.getElementById('filter-plataforma').addEventListener('change', render);
+document.getElementById('filter-situacao').addEventListener('change', render);
+
+loadData();
+setInterval(loadData, REFRESH_MS);
+</script>
+</body>
+</html>
